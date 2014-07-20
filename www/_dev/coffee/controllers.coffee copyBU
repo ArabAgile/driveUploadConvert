@@ -1,0 +1,269 @@
+angular.module 'starter.controllers', []
+
+  .controller 'AppCtrl', ['$scope', 'GAPI', 'Drive', ($scope, GAPI, Drive) ->
+    
+
+    GAPI.init();
+
+    developerKey = 'AIzaSyC16izxX7Vo8VY501SKn5CicFbUuFTI4-o'
+    clientId = '542713923673-3r53pqvpafqk15t0961rchrpqounhhfs.apps.googleusercontent.com'
+    scope = ['https://www.googleapis.com/auth/drive']
+    pickerApiLoaded = false
+    oauthToken = null
+
+    # Use the API Loader script to load google.picker and gapi.auth.
+    onApiLoad = ->
+      console.log 'Loading...'
+      gapi.load 'auth', {'callback': onAuthApiLoad}
+      return
+
+    onApiLoad()
+
+
+    onAuthApiLoad = ->
+      console.log 'asdas'
+      gapi.auth.authorize {
+          'client_id': clientId
+          'scope': scope
+          'immediate': false
+        },
+        handleAuthResult
+      return
+
+
+    handleAuthResult = (authResult) ->
+      if authResult && !authResult.error
+        oauthToken = authResult.access_token
+        # filePicker.onchange = uploadFile
+        # openPicker.onclick = loadPicker
+        return
+
+
+    $scope.openPicker = ->
+      console.log 'Openinig....'
+      gapi.load 'picker', {'callback': onPickerApiLoad}
+      return
+
+
+    onPickerApiLoad = ->
+      pickerApiLoaded = true
+      createPicker()
+      return
+
+
+    # Create and render a Picker object for picking user Photos.
+    createPicker = ->
+      if pickerApiLoaded && oauthToken
+        picker = new google.picker.PickerBuilder().
+            addView(google.picker.ViewId.SPREADSHEETS).
+            addView(google.picker.ViewId.RECENTLY_PICKED).
+            setOAuthToken(oauthToken).
+            setDeveloperKey(developerKey).
+            setCallback(pickerCallback).
+            build()
+        picker.setVisible true
+        return
+
+
+    # A simple callback implementation.
+    pickerCallback = (data) ->
+      url = null
+      if data[google.picker.Response.ACTION] == google.picker.Action.PICKED
+        doc = data[google.picker.Response.DOCUMENTS][0]
+        console.log doc
+        url = doc[google.picker.Document.URL]
+        # downloadFile url
+        printFile doc.id
+        return
+
+
+    # Insert new file.
+    insertFile = (fileData, callback) ->
+      boundary = '-------314159265358979323846'
+      delimiter = "\r\n--" + boundary + "\r\n"
+      close_delim = "\r\n--" + boundary + "--"
+
+      reader = new FileReader()
+      reader.readAsBinaryString fileData
+      reader.onload = (e) ->
+        contentType = fileData.type || 'application/octet-stream'
+        metadata = {
+          'title': fileData.name
+          'mimeType': contentType
+        }
+
+        base64Data = btoa reader.result
+        multipartRequestBody =
+            delimiter +
+            'Content-Type: application/json\r\n\r\n' +
+            JSON.stringify(metadata) +
+            delimiter +
+            'Content-Type: ' + contentType + '\r\n' +
+            'Content-Transfer-Encoding: base64\r\n' +
+            '\r\n' +
+            base64Data +
+            close_delim
+
+        request = gapi.client.request {
+          'path': '/upload/drive/v2/files'
+          'method': 'POST'
+          'params': {'uploadType': 'multipart'}
+          'headers': {
+            'Content-Type': 'multipart/mixed; boundary="' + boundary + '"'
+          }
+          'body': multipartRequestBody
+        }
+        
+        if !callback
+          callback = (file) ->
+            console.log file
+            downloadFile file
+
+        request.execute callback
+        return
+      return
+
+    # Print a files metadata
+    printFile = (fileId) ->
+      gapi.client.load 'drive', 'v2', ->
+        request = gapi.client.drive.files.get {
+          'fileId': fileId
+        }
+
+        request.execute (file) ->
+          downloadFile file
+          # console.log('Title: ' + file.title);
+          # console.log('Description: ' + file.description);
+          # console.log('MIME type: ' + file.mimeType);
+          return
+      return
+
+    # Download a file content.
+    downloadFile = (file, callback) ->
+      if file.downloadUrl
+        url = file.downloadUrl
+      else
+        url = file
+
+      oReq = new XMLHttpRequest()
+      accessToken = gapi.auth.getToken().access_token
+
+      oReq.open "GET", url, true
+      oReq.setRequestHeader 'Authorization', 'Bearer ' + accessToken
+      oReq.responseType = "arraybuffer"
+
+      oReq.onload = (e) ->
+        arraybuffer = oReq.response
+
+        # convert data to binary string
+        data = new Uint8Array arraybuffer
+        arr = new Array()
+
+        `for(i = 0; i != data.length; ++i) arr[i] = String.fromCharCode(data[i])`
+        bstr = arr.join("")
+
+        # Call XLSX
+        workbook = XLSX.read bstr, {type:"binary"}
+
+        sheet_name_list = workbook.SheetNames
+        sheet_name_list.forEach (y) ->
+          worksheet = workbook.Sheets[y]
+          `for (z in worksheet) {
+            if(z[0] === '!') continue;
+            console.log(y + "!" + z + "=" + JSON.stringify(worksheet[z].v));
+          }`
+          return
+
+      oReq.send()
+      return
+
+    return
+  ]
+
+  .controller 'HomeCtrl', ['$scope', ($scope) ->
+
+    
+
+    return
+  ]
+
+  .controller 'ConvertCtrl', ['$scope', ($scope) ->
+
+    
+
+    return
+  ]
+
+
+
+  .controller 'UploadCtrl', ['$scope', ($scope) ->
+
+    # uploader = $('#filePicker').on 'change', uploadFile
+
+    uploadFile = (evt) ->
+      alert 'Upload'
+      gapi.client.load 'drive', 'v2', ->
+        file = evt.target.files[0]
+        insertFile file
+
+
+    
+
+    return
+  ]
+
+
+
+  .controller 'AuthCtrl', ['$scope', '$window', ($scope, $window) ->
+
+    pickerApiLoaded = false
+    oauthToken = null
+
+    # Use the API Loader script to load google.picker and gapi.auth.
+    onApiLoad = ->
+      # gapi.load('auth', {'callback': onAuthApiLoad})
+      # gapi.load('picker', {'callback': onPickerApiLoad})
+      alert 'Loading...'
+
+    onApiLoad()
+
+    onAuthApiLoad = ->
+      gapi.auth.authorize {
+          'client_id': clientId
+          'scope': scope
+          'immediate': false
+        },
+        handleAuthResult
+      return
+
+    handleAuthResult = ->
+      if authResult && !authResult.error
+        oauthToken = authResult.access_token
+        createPicker()
+
+
+    # Create and render a Picker object for picking user Photos.
+    createPicker = ->
+      if pickerApiLoaded && oauthToken
+        picker = new google.picker.PickerBuilder().
+          addView(google.picker.ViewId.SPREADSHEETS).
+          setOAuthToken(oauthToken).
+          setDeveloperKey(developerKey).
+          setCallback(pickerCallback).
+          build()
+        picker.setVisible true
+        return
+
+    pickerCallback = (data) ->
+      url = 'nothing'
+      if data[google.picker.Response.ACTION] == google.picker.Action.PICKED
+        doc = data[google.picker.Response.DOCUMENTS][0]
+        url = doc[google.picker.Document.URL]
+
+      message = 'You picked: ' + url
+      document.getElementById('result').innerHTML = message
+      return
+
+    return
+  ]
+
