@@ -5,11 +5,15 @@
   <ion-content class="has-header">
     <div class="padding">
 	    Select a file to upload<br />
-      <input type="file" class="button button-block button-royal" id="filePicker" />
+      <input type="file" class="button button-block button-royal" id="filePicker" multiple />
+
+      <input type="button" class="button button-block button-royal" id="openPicker" value="Set parent folder" ng-click="setFolder()" />
+
       <button ng-click="uploadFile()" class="button button-block button-balanced">
-		<i class="icon ion-ios7-cloud-upload-outline"></i>
-		Upload
-	</button>
+    		<i class="icon ion-ios7-cloud-upload-outline"></i>
+    		Upload
+    	</button>
+
 
     </div>
   </ion-content>

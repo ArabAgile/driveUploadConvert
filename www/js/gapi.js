@@ -406,6 +406,29 @@ angular.module('gapi', [])
       });
     };
 
+
+    /**
+     * Open folder
+     */
+
+    GAPI.openFolderPicker = function(callback) {
+      gapi.load('picker', function () {
+
+        var docsView = new google.picker.DocsView()
+          .setIncludeFolders(true) 
+          .setMimeTypes('application/vnd.google-apps.folder')
+          .setSelectFolderEnabled(true);
+
+        var picker = new google.picker.PickerBuilder()
+          .addView(docsView)
+          .setOAuthToken(GAPI.app.oauthToken.access_token)
+          .setDeveloperKey(GAPI.app.apiKey)
+          .setCallback(callback)
+          .build();
+        picker.setVisible(true);
+        
+      });
+    };
     return GAPI;
   })
 

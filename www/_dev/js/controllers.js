@@ -116,9 +116,9 @@ angular.module('starter.controllers', []).controller('AppCtrl', [
     };
   }
 ]).controller('UploadCtrl', [
-  '$scope', 'Drive', function($scope, Drive) {
-    var uploadFile;
-    uploadFile = function(fileData, callback) {
+  '$scope', 'Drive', 'GAPI', '$timeout', function($scope, Drive, GAPI, $timeout) {
+    var uploadFile, _parent;
+    uploadFile = function(fileData) {
       var boundary, close_delim, delimiter, reader;
       boundary = '-------314159265358979323846';
       delimiter = "\r\n--" + boundary + "\r\n";
@@ -126,11 +126,12 @@ angular.module('starter.controllers', []).controller('AppCtrl', [
       reader = new FileReader();
       reader.readAsBinaryString(fileData);
       reader.onload = function(e) {
-        var base64Data, contentType, metadata, multipartRequestBody, request;
+        var base64Data, callback, contentType, metadata, multipartRequestBody, request;
         contentType = fileData.type || 'application/octet-stream';
         metadata = {
           'title': fileData.name,
-          'mimeType': contentType
+          'mimeType': contentType,
+          'parents': _parent
         };
         base64Data = btoa(reader.result);
         multipartRequestBody = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: ' + contentType + '\r\n' + 'Content-Transfer-Encoding: base64\r\n' + '\r\n' + base64Data + close_delim;
@@ -145,18 +146,45 @@ angular.module('starter.controllers', []).controller('AppCtrl', [
           },
           'body': multipartRequestBody
         });
-        if (!callback) {
-          callback = function(file) {
-            return alert('File uploaded successfully ');
-          };
-        }
-        request.execute(callback);
+        callback = function() {
+          console.log('Uploaded');
+        };
+        return request.execute(callback);
       };
     };
     $scope.uploadFile = function() {
-      var file;
-      file = document.getElementById('filePicker').files[0];
-      uploadFile(file);
+      var file, files, _i, _len;
+      files = document.getElementById('filePicker').files;
+      if (files.length <= 0) {
+        alert('Please select file(s) to upload');
+        return;
+      }
+      for (_i = 0, _len = files.length; _i < _len; _i++) {
+        file = files[_i];
+        uploadFile(file);
+      }
+    };
+    _parent = [];
+    $scope.setFolder = function() {
+      GAPI.openFolderPicker($scope.folderCallback);
+    };
+    $scope.folderCallback = function(data) {
+      var doc, url;
+      doc = void 0;
+      url = void 0;
+      url = null;
+      $timeout(function() {
+        var folder;
+        if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
+          folder = data[google.picker.Response.DOCUMENTS][0];
+          _parent = [
+            {
+              "id": folder.id
+            }
+          ];
+          return;
+        }
+      });
     };
   }
 ]);

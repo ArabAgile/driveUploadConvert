@@ -143,9 +143,9 @@ angular.module 'starter.controllers', []
 
 
 
-  .controller 'UploadCtrl', ['$scope', 'Drive', ($scope, Drive) ->
+  .controller 'UploadCtrl', ['$scope', 'Drive', 'GAPI', '$timeout', ($scope, Drive, GAPI, $timeout) ->
 
-    uploadFile = (fileData, callback) ->
+    uploadFile = (fileData) ->
       boundary = '-------314159265358979323846'
       delimiter = "\r\n--" + boundary + "\r\n"
       close_delim = "\r\n--" + boundary + "--"
@@ -157,6 +157,7 @@ angular.module 'starter.controllers', []
         metadata = {
           'title': fileData.name
           'mimeType': contentType
+          'parents': _parent
         }
 
         base64Data = btoa reader.result
@@ -180,18 +181,43 @@ angular.module 'starter.controllers', []
           }
           'body': multipartRequestBody
         }
-        
-        if !callback
-          callback = (file) ->
-            alert 'File uploaded successfully '
 
+        callback = -> 
+          console.log 'Uploaded'
+          return
+        
         request.execute callback
-        return
       return
 
-    $scope.uploadFile = ->     
-      file = document.getElementById('filePicker').files[0]
-      uploadFile file
+    $scope.uploadFile = ->
+      files = document.getElementById('filePicker').files
+      if files.length <= 0
+        alert 'Please select file(s) to upload'
+        return
+
+      for file in files
+        uploadFile file
+
+      return
+
+    _parent = [];
+
+    $scope.setFolder = ->
+      GAPI.openFolderPicker($scope.folderCallback)
+      return
+
+    $scope.folderCallback = (data) ->
+      doc = undefined
+      url = undefined
+      url = null
+      $timeout ->
+        if data[google.picker.Response.ACTION] is google.picker.Action.PICKED
+          folder = data[google.picker.Response.DOCUMENTS][0]
+          _parent = [{"id": folder.id}]
+          return
+
+        return
+
       return
 
     return
