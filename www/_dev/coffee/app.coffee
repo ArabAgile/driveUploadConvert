@@ -46,6 +46,18 @@ angular.module 'starter', ['ionic', 'starter.controllers', 'starter.services', '
 
     }
 
+    # Convert local files to json
+    .state 'app.convertLocal', {
+      url: "/convert-local"
+      views: {
+        'menuContent' : {
+          templateUrl: "templates/convert-local.html"
+          controller: 'ConvertLocalCtrl'
+        }
+      }
+
+    }
+
     # Upload json
     .state 'app.upload', {
       url: "/upload"

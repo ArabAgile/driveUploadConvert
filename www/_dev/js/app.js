@@ -32,6 +32,14 @@ angular.module('starter', ['ionic', 'starter.controllers', 'starter.services', '
           controller: 'ConvertCtrl'
         }
       }
+    }).state('app.convertLocal', {
+      url: "/convert-local",
+      views: {
+        'menuContent': {
+          templateUrl: "templates/convert-local.html",
+          controller: 'ConvertLocalCtrl'
+        }
+      }
     }).state('app.upload', {
       url: "/upload",
       views: {

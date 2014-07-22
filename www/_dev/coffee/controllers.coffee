@@ -10,6 +10,7 @@ angular.module 'starter.controllers', []
     return
   ]
 
+
   .controller 'ConvertCtrl', ['$scope', '$timeout', 'GAPI', 'Drive', ($scope, $timeout, GAPI, Drive) ->
 
     $scope.convertedJSON = null
@@ -130,10 +131,24 @@ angular.module 'starter.controllers', []
 
     # Convert xlsx to json
     xlsx2json = (file, callback) ->
+
       if file.downloadUrl
         url = file.downloadUrl
+
+      else if file.exportLinks
+
+        `for (var prop in file.exportLinks) {
+          if (file.exportLinks.hasOwnProperty(prop)) {
+            // console.log(prop + ' -> ' + file.exportLinks[prop])
+            if (prop == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+              url = file.exportLinks[prop]
+          }
+
+        }`
+
       else
         url = file
+
 
       oReq = new XMLHttpRequest()
       accessToken = gapi.auth.getToken().access_token
@@ -295,6 +310,186 @@ angular.module 'starter.controllers', []
         return
 
       return
+
+    return
+  ]
+
+
+  # Convert local files to json
+  .controller 'ConvertLocalCtrl', ['$scope', '$timeout', 'GAPI', 'Drive', ($scope, $timeout, GAPI, Drive) ->
+
+    $scope.convertFile = ->
+      file = document.getElementById('filePicker').files[0]
+      if file?
+        xlsx2json file
+      else 
+        alert 'Please select a file to upload'
+        return
+
+      return
+
+
+
+    Download =
+      click: (node) ->
+        ev = document.createEvent("MouseEvents")
+        ev.initMouseEvent "click", true, false, self, 0, 0, 0, 0, 0, false, false, false, false, 0, null
+        node.dispatchEvent ev
+
+      encode: (data) ->
+        "data:application/octet-stream;base64," + btoa(data)
+
+      link: (data, name) ->
+        a = document.createElement("a")
+        a.download = name or self.location.pathname.slice(self.location.pathname.lastIndexOf("/") + 1)
+        a.href = data or self.location.href
+        a
+
+    Download.save = (data, name) ->
+      @click @link(@encode(data), name)
+      return
+
+
+    $scope.downloadFile = (sheet) ->
+      Download.save JSON.stringify(sheet), sheet.name + ".json"
+
+
+    uploadJSONFile = (fileData, fileName) ->
+      boundary = '-------314159265358979323846'
+      delimiter = "\r\n--" + boundary + "\r\n"
+      close_delim = "\r\n--" + boundary + "--"
+
+      contentType = 'application/json'
+      metadata = {
+        'title': fileName
+        'mimeType': contentType
+        'parents': _parent
+      }
+
+      base64Data = btoa fileData
+      multipartRequestBody =
+          delimiter +
+          'Content-Type: application/json\r\n\r\n' +
+          JSON.stringify(metadata) +
+          delimiter +
+          'Content-Type: ' + contentType + '\r\n' +
+          'Content-Transfer-Encoding: base64\r\n' +
+          '\r\n' +
+          base64Data +
+          close_delim
+
+      request = gapi.client.request {
+        'path': '/upload/drive/v2/files'
+        'method': 'POST'
+        'params': {'uploadType': 'multipart'}
+        'headers': {
+          'Content-Type': 'multipart/mixed; boundary="' + boundary + '"'
+        }
+        'body': multipartRequestBody
+      }
+
+      callback = -> 
+        alert 'File ' + fileName + ' Uploaded successfully to your Drive!'
+        return
+        
+      request.execute callback
+      return
+
+
+    _parent = [];
+
+    $scope.setFolder = (sheet) ->
+      $scope.selectedSheet = sheet
+      GAPI.openFolderPicker($scope.folderCallback)
+      return
+
+    $scope.folderCallback = (data) ->
+      doc = undefined
+      url = undefined
+      url = null
+      $timeout ->
+        if data[google.picker.Response.ACTION] is google.picker.Action.PICKED
+          folder = data[google.picker.Response.DOCUMENTS][0]
+          _parent = [{"id": folder.id}]
+          $scope.uploadFile($scope.selectedSheet)
+          return
+
+        return
+
+      return
+
+    $scope.uploadFile = (sheet) ->
+      uploadJSONFile JSON.stringify(sheet), sheet.name + ".json"
+
+
+    # Convert xlsx to json
+    xlsx2json = (file, callback) ->
+
+      reader = new FileReader()
+      reader.readAsBinaryString file
+      reader.onload = (theFile) ->
+
+        # Render thumbnail.
+        # e.target.result
+        # escape theFile.name
+
+        # Call XLSX 
+        workbook = XLSX.read(theFile.target.result,
+          type: "binary"
+        )
+
+        sheets = []
+
+        sheet_name_list = workbook.SheetNames
+        sheet_name_list.forEach (y) ->
+
+          worksheet = workbook.Sheets[y]
+
+          sheet = {}
+          sheet.name = y
+          sheet.data = []
+
+          i = 0
+          `for (z in worksheet) {
+            if(z[0] === '!') continue;
+
+            var idx = z.substring(1);
+            var value = worksheet[z].v;
+
+            // New question
+            if (parseInt(idx) > i) {
+              i++;
+              sheet.data[i-1] = {};
+            }
+
+            // Question (A)
+            if (z[0] == 'A') {
+              sheet.data[i-1].question = value;
+            }
+
+            // Answer (B)
+            else if(z[0] == 'B') {
+              sheet.data[i-1].answer = value;
+            }
+
+            // Correction (C)
+            else if(z[0] == 'C') {
+              sheet.data[i-1].correction = value;
+            }
+            
+          }`
+
+          sheets.push sheet
+          return
+
+        $scope.sheets = sheets
+        $scope.$apply()
+        return
+
+      # reader.readAsDataURL f
+
+      return
+
 
     return
   ]
